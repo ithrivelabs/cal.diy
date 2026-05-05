@@ -107,6 +107,45 @@ async function requireTeamAdminOrOwner({
   return membership;
 }
 
+async function requireTeamMembership({
+  prisma,
+  userId,
+  teamId,
+}: {
+  prisma: PrismaClient;
+  userId: number;
+  teamId: number;
+}) {
+  const membership = await prisma.membership.findUnique({
+    where: {
+      userId_teamId: {
+        userId,
+        teamId,
+      },
+    },
+    select: {
+      role: true,
+      accepted: true,
+      team: {
+        select: {
+          id: true,
+          isOrganization: true,
+        },
+      },
+    },
+  });
+
+  if (!membership || !membership.accepted) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You are not a member of this team." });
+  }
+
+  if (membership.team.isOrganization) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Organization is not supported in this endpoint." });
+  }
+
+  return membership;
+}
+
 async function ensureNonOrgSlugAvailable({
   prisma,
   slug,
@@ -267,7 +306,7 @@ export const teamsRouter = router({
   }),
 
   listMembers: authedProcedure.input(ZListMembersInput).query(async ({ ctx, input }) => {
-    await requireTeamAdminOrOwner({
+    await requireTeamMembership({
       prisma: ctx.prisma,
       userId: ctx.user.id,
       teamId: input.teamId,

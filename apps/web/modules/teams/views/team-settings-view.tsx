@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import { MembershipRole } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { Label, TextArea, TextField } from "@calcom/ui/components/form";
@@ -72,6 +73,8 @@ export const TeamSettingsView = ({ teamSlug }: TeamSettingsViewProps) => {
   if (teamQuery.isError || !teamQuery.data) {
     return <div className="mx-auto max-w-4xl p-6 text-red-600 text-sm">{teamQuery.error?.message}</div>;
   }
+  const canEditTeam =
+    teamQuery.data.role === MembershipRole.ADMIN || teamQuery.data.role === MembershipRole.OWNER;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 p-6">
@@ -88,13 +91,13 @@ export const TeamSettingsView = ({ teamSlug }: TeamSettingsViewProps) => {
       </div>
 
       <form className="space-y-4 rounded-xl border border-subtle bg-default p-4" onSubmit={handleSubmit}>
-        <TextField label={t("team_name")} {...form.register("name")} />
-        <TextField label={t("url")} {...form.register("slug")} />
+        <TextField label={t("team_name")} {...form.register("name")} disabled={!canEditTeam} />
+        <TextField label={t("url")} {...form.register("slug")} disabled={!canEditTeam} />
         <div className="flex w-full flex-col gap-1.5">
           <Label className="text-emphasis mb-0 text-sm font-medium leading-4">{t("team_bio")}</Label>
-          <TextArea {...form.register("bio")} className="min-h-[108px] max-h-[150px]" />
+          <TextArea {...form.register("bio")} className="min-h-[108px] max-h-[150px]" disabled={!canEditTeam} />
         </div>
-        <Button type="submit" color="primary" loading={updateMutation.isPending}>
+        <Button type="submit" color="primary" loading={updateMutation.isPending} disabled={!canEditTeam}>
           {t("save")}
         </Button>
       </form>

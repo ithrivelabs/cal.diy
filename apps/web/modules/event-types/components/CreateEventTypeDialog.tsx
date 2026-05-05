@@ -114,18 +114,30 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
         enableOverflow
         title={teamId ? t("add_new_team_event_type") : t("add_new_event_type")}
         description={t("new_event_type_to_book_description")}>
-        {teamId ? null : (
+        {!teamId || permissions.canCreateEventType ? (
           <CreateEventTypeForm
             urlPrefix={urlPrefix}
             isPending={createMutation.isPending}
             form={form}
             isManagedEventType={isManagedEventType}
             handleSubmit={(values) => {
-              createMutation.mutate(values);
+              createMutation.mutate({
+                ...values,
+                ...(teamId
+                  ? {
+                      teamId,
+                      schedulingType: values.schedulingType ?? SchedulingType.COLLECTIVE,
+                    }
+                  : {}),
+              });
             }}
             SubmitButton={SubmitButton}
             pageSlug={pageSlug}
           />
+        ) : (
+          <div className="rounded-md border border-subtle bg-muted p-4 text-sm text-subtle">
+            {t("readonly")}
+          </div>
         )}
       </DialogContent>
     </Dialog>

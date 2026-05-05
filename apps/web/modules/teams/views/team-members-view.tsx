@@ -60,6 +60,9 @@ export const TeamMembersView = ({ teamSlug }: TeamMembersViewProps) => {
   const membershipRole = teamQuery.data.role;
   const canManageMembers = membershipRole === MembershipRole.ADMIN || membershipRole === MembershipRole.OWNER;
   const members = membersQuery.data ?? [];
+  if (membersQuery.isError) {
+    return <div className="mx-auto max-w-4xl p-6 text-red-600 text-sm">{membersQuery.error.message}</div>;
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 p-6">

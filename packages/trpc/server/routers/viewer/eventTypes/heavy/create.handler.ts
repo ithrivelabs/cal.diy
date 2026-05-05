@@ -8,14 +8,8 @@ import type { eventTypeLocations } from "@calcom/prisma/zod-utils";
 import { TRPCError } from "@trpc/server";
 import type { z } from "zod";
 import type { TrpcSessionUser } from "../../../../types";
+import { PermissionCheckService } from "../../../../lib/PermissionCheckService";
 import type { TCreateInputSchema } from "./create.schema";
-
-class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) { return true; }
-  async hasPermission(..._args: unknown[]) { return true; }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> { return []; }
-}
 
 type EventTypeLocation = z.infer<typeof eventTypeLocations>[number];
 
@@ -57,7 +51,7 @@ export const createHandler = async ({ ctx, input }: CreateOptions) => {
   const isManagedEventType = schedulingType === SchedulingType.MANAGED;
   const isOrgAdmin = !!ctx.user?.organization?.isOrgAdmin;
 
-  const permissionService = new PermissionCheckService();
+  const permissionService = new PermissionCheckService(ctx.prisma);
   // Check if user has organization-level eventType.create permission (equivalent to org admin for event types)
   let hasOrgEventTypeCreatePermission = isOrgAdmin; // Default fallback
 
@@ -66,7 +60,7 @@ export const createHandler = async ({ ctx, input }: CreateOptions) => {
       userId,
       teamId: ctx.user.organizationId,
       permission: "eventType.create",
-      fallbackRoles: [MembershipRole.ADMIN, MembershipRole.OWNER],
+      fallbackRoles: [MembershipRole.ADMIN, MembershipRole.OWNER, MembershipRole.MEMBER],
     });
   }
 
@@ -100,7 +94,7 @@ export const createHandler = async ({ ctx, input }: CreateOptions) => {
     };
   }
 
-  if (teamId && schedulingType) {
+  if (teamId) {
     const isSystemAdmin = ctx.user.role === "ADMIN";
 
     // Only check for team-level permissions - this will also check for membership
@@ -108,7 +102,7 @@ export const createHandler = async ({ ctx, input }: CreateOptions) => {
       userId,
       teamId,
       permission: "eventType.create",
-      fallbackRoles: [MembershipRole.ADMIN, MembershipRole.OWNER],
+      fallbackRoles: [MembershipRole.ADMIN, MembershipRole.OWNER, MembershipRole.MEMBER],
     });
 
     if (!isSystemAdmin && !hasOrgEventTypeCreatePermission && !hasCreatePermission) {
@@ -123,7 +117,9 @@ export const createHandler = async ({ ctx, input }: CreateOptions) => {
         id: teamId,
       },
     };
-    data.schedulingType = schedulingType;
+    if (schedulingType) {
+      data.schedulingType = schedulingType;
+    }
   }
 
   // If we are in an organization & they don't have org-level eventType.create permission & they are not creating an event on a teamID

@@ -69,7 +69,7 @@ export const getUserEventGroups = async ({ ctx, input }: GetByViewerOptions) => 
       userId: user.id,
       teamId: teamId,
       permission: "eventType.create",
-      fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
+      fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN, MembershipRole.MEMBER],
     });
     return {
       teamId,
