@@ -5,15 +5,10 @@ import { MembershipRole } from "@calcom/prisma/enums";
 import { teamMetadataSchema } from "@calcom/prisma/zod-utils";
 import type { TrpcSessionUser } from "@calcom/trpc/server/types";
 import { TRPCError } from "@trpc/server";
+import { PermissionCheckService } from "../../lib/PermissionCheckService";
 import type { TTeamsAndUserProfilesQueryInputSchema } from "./teamsAndUserProfilesQuery.schema";
 
 type PermissionString = string;
-class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) { return true; }
-  async hasPermission(..._args: unknown[]) { return true; }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> { return []; }
-}
 
 type TeamsAndUserProfileOptions = {
   ctx: {
@@ -102,9 +97,9 @@ export const teamsAndUserProfilesQuery = async ({ ctx, input }: TeamsAndUserProf
   }
 
   // Filter teams based on permission if provided
-  let hasPermissionForFiltered: boolean[] = [];
+  const hasPermissionByTeamId = new Map<number, boolean>();
   if (input?.withPermission) {
-    const permissionService = new PermissionCheckService();
+    const permissionService = new PermissionCheckService(ctx.prisma);
     const { permission, fallbackRoles } = input.withPermission;
 
     const permissionChecks = await Promise.all(
@@ -118,9 +113,15 @@ export const teamsAndUserProfilesQuery = async ({ ctx, input }: TeamsAndUserProf
       )
     );
 
-    // Store permission results for teams that passed the filter
-    hasPermissionForFiltered = permissionChecks.filter((hasPermission) => hasPermission);
-    teamsData = teamsData.filter((_, index) => permissionChecks[index]);
+    teamsData.forEach((membership, index) => {
+      hasPermissionByTeamId.set(membership.team.id, permissionChecks[index]);
+    });
+
+    teamsData = teamsData.filter((membership, index) => {
+      const hasPermission = permissionChecks[index];
+      hasPermissionByTeamId.set(membership.team.id, hasPermission);
+      return hasPermission;
+    });
   }
 
   // Sort teams so organizations come first, followed by other teams
@@ -142,7 +143,7 @@ export const teamsAndUserProfilesQuery = async ({ ctx, input }: TeamsAndUserProf
       }),
       readOnly: false,
     },
-    ...teamsData.map((membership, index) => ({
+    ...teamsData.map((membership) => ({
       teamId: membership.team.id,
       name: membership.team.name,
       slug: membership.team.slug ? `team/${membership.team.slug}` : null,
@@ -151,7 +152,7 @@ export const teamsAndUserProfilesQuery = async ({ ctx, input }: TeamsAndUserProf
         : getPlaceholderAvatar(membership.team.logoUrl, membership.team.name),
       role: membership.role,
       readOnly: input?.withPermission
-        ? !hasPermissionForFiltered[index]
+        ? !(hasPermissionByTeamId.get(membership.team.id) ?? false)
         : !rolesWithWriteAccess.includes(membership.role),
     })),
   ];

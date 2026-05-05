@@ -151,10 +151,14 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
     });
 
     if (existingUser) {
+      const callbackUrlFromQuery =
+        typeof ctx.query.callbackUrl === "string" && ctx.query.callbackUrl.length > 0
+          ? ctx.query.callbackUrl
+          : `/signup?token=${token}`;
       return {
         redirect: {
           permanent: false,
-          destination: `/auth/login?callbackUrl=${WEBAPP_URL}/${ctx.query.callbackUrl}`,
+          destination: `/auth/login?callbackUrl=${encodeURIComponent(callbackUrlFromQuery)}`,
         },
       };
     }

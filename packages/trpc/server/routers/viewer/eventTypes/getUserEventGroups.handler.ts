@@ -4,19 +4,13 @@ import { checkRateLimitAndThrowError } from "@calcom/lib/checkRateLimitAndThrowE
 import type { PrismaClient } from "@calcom/prisma";
 import { MembershipRole } from "@calcom/prisma/enums";
 import { TRPCError } from "@trpc/server";
+import { PermissionCheckService } from "../../../lib/PermissionCheckService";
 import type { TrpcSessionUser } from "../../../types";
 import type { TEventTypeInputSchema } from "./getByViewer.schema";
 import { TeamAccessUseCase } from "./teamAccessUseCase";
 import { EventGroupBuilder } from "./usecases/EventGroupBuilder";
 import { ProfilePermissionProcessor } from "./usecases/ProfilePermissionProcessor";
 import { EventTypeGroupFilter } from "./utils/EventTypeGroupFilter";
-
-class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) { return true; }
-  async hasPermission(..._args: unknown[]) { return true; }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> { return []; }
-}
 
 type GetByViewerOptions = {
   ctx: {
@@ -45,7 +39,7 @@ export const getUserEventGroups = async ({ ctx, input }: GetByViewerOptions) => 
   const dependencies = {
     membershipRepository: MembershipRepository,
     profileRepository: ProfileRepository,
-    teamAccessUseCase: new TeamAccessUseCase(),
+    teamAccessUseCase: new TeamAccessUseCase(new PermissionCheckService(ctx.prisma)),
   };
 
   // Build event groups
@@ -64,7 +58,7 @@ export const getUserEventGroups = async ({ ctx, input }: GetByViewerOptions) => 
   const profileProcessor = new ProfilePermissionProcessor();
   const profiles = profileProcessor.processProfiles(eventTypeGroups, teamPermissionsMap);
 
-  const permissionCheckService = new PermissionCheckService();
+  const permissionCheckService = new PermissionCheckService(ctx.prisma);
 
   const teamIdsToCheck = filteredEventTypeGroups
     .map((group) => group.teamId)
