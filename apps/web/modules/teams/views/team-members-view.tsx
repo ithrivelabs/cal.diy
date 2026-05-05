@@ -112,6 +112,7 @@ export const TeamMembersView = ({ teamSlug }: TeamMembersViewProps) => {
       <div className="rounded-xl border border-subtle bg-default">
         {members.map((member) => {
           const isCurrentUser = member.userId === meQuery.data?.id;
+          const canResendInvite = canManageMembers && !member.accepted;
           return (
             <div key={member.userId} className="flex items-center justify-between border-b border-subtle p-4 last:border-b-0">
               <div>
@@ -120,38 +121,63 @@ export const TeamMembersView = ({ teamSlug }: TeamMembersViewProps) => {
                   {member.user.email} - {member.role} - {member.accepted ? "accepted" : "pending"}
                 </p>
               </div>
-              {canManageMembers && member.accepted && member.role !== MembershipRole.OWNER && !isCurrentUser && (
-                <div className="flex gap-2">
+              <div className="flex gap-2">
+                {canResendInvite && (
                   <Button
                     color="secondary"
-                    disabled={roleMutation.isPending}
+                    disabled={inviteMutation.isPending || !teamId}
+                    loading={inviteMutation.isPending}
                     onClick={() =>
                       teamId &&
-                      roleMutation.mutate({
+                      inviteMutation.mutate({
                         teamId,
-                        userId: member.userId,
-                        role:
-                          member.role === MembershipRole.ADMIN
-                            ? MembershipRole.MEMBER
-                            : MembershipRole.ADMIN,
+                        invites: [
+                          {
+                            email: member.user.email,
+                            role:
+                              member.role === MembershipRole.ADMIN
+                                ? MembershipRole.ADMIN
+                                : MembershipRole.MEMBER,
+                          },
+                        ],
                       })
                     }>
-                    {member.role === MembershipRole.ADMIN ? "Make member" : "Make admin"}
+                    {t("resend_invitation")}
                   </Button>
-                  <Button
-                    color="destructive"
-                    disabled={removeMutation.isPending}
-                    onClick={() =>
-                      teamId &&
-                      removeMutation.mutate({
-                        teamId,
-                        userId: member.userId,
-                      })
-                    }>
-                    {t("remove")}
-                  </Button>
-                </div>
-              )}
+                )}
+                {canManageMembers && member.accepted && member.role !== MembershipRole.OWNER && !isCurrentUser && (
+                  <>
+                    <Button
+                      color="secondary"
+                      disabled={roleMutation.isPending}
+                      onClick={() =>
+                        teamId &&
+                        roleMutation.mutate({
+                          teamId,
+                          userId: member.userId,
+                          role:
+                            member.role === MembershipRole.ADMIN
+                              ? MembershipRole.MEMBER
+                              : MembershipRole.ADMIN,
+                        })
+                      }>
+                      {member.role === MembershipRole.ADMIN ? "Make member" : "Make admin"}
+                    </Button>
+                    <Button
+                      color="destructive"
+                      disabled={removeMutation.isPending}
+                      onClick={() =>
+                        teamId &&
+                        removeMutation.mutate({
+                          teamId,
+                          userId: member.userId,
+                        })
+                      }>
+                      {t("remove")}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           );
         })}

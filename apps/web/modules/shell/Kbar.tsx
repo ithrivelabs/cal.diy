@@ -151,7 +151,7 @@ const KBAR_ACTION_CONFIGS: ActionConfig[] = [
     name: "teams",
     shortcut: ["t", "s"],
     keywords: "add manage modify team",
-    href: "/settings/teams",
+    href: "/teams",
   },
   {
     id: "password",

@@ -1,4 +1,6 @@
 import process from "node:process";
+import { createOrUpdateMemberships } from "@calcom/features/auth/signup/utils/createOrUpdateMemberships";
+import { joinAnyChildTeamOnOrgInvite } from "@calcom/features/auth/signup/utils/organization";
 import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import { getOrgUsernameFromEmail } from "@calcom/features/auth/signup/utils/getOrgUsernameFromEmail";
 import { FeaturesRepository } from "@calcom/features/flags/features.repository";
@@ -44,11 +46,55 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
     req: ctx.req,
   });
 
+  if (session?.user?.id && token) {
+    const verificationToken = await prisma.verificationToken.findUnique({
+      where: {
+        token,
+      },
+      include: {
+        team: {
+          include: {
+            parent: {
+              select: {
+                id: true,
+                organizationSettings: true,
+              },
+            },
+            organizationSettings: true,
+          },
+        },
+      },
+    });
+
+    if (verificationToken?.team && verificationToken.expires > new Date()) {
+      await createOrUpdateMemberships({
+        user: { id: session.user.id },
+        team: verificationToken.team,
+      });
+
+      if (verificationToken.team.parent) {
+        await joinAnyChildTeamOnOrgInvite({
+          userId: session.user.id,
+          org: {
+            id: verificationToken.team.parent.id,
+            organizationSettings: verificationToken.team.parent.organizationSettings,
+          },
+        });
+      }
+
+      await prisma.verificationToken.delete({
+        where: {
+          id: verificationToken.id,
+        },
+      });
+    }
+  }
+
   if (session?.user?.id) {
     return {
       redirect: {
         permanent: false,
-        destination: redirectUrl || "/",
+        destination: redirectUrl || "/teams",
       },
     } as const;
   }
