@@ -26,7 +26,11 @@ export const eventTypesRouter = router({
         input,
       });
     }),
-  update: createEventPbacProcedure("eventType.update", [MembershipRole.ADMIN, MembershipRole.OWNER])
+  update: createEventPbacProcedure("eventType.update", [
+    MembershipRole.ADMIN,
+    MembershipRole.OWNER,
+    MembershipRole.MEMBER,
+  ])
     .input(ZUpdateInputSchema)
     .mutation(async ({ ctx, input }) => {
       const { updateHandler } = await import("./update.handler");
