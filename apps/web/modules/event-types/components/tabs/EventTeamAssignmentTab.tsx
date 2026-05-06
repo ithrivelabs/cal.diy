@@ -46,7 +46,7 @@ const EventTeamAssignmentTab = ({ eventType, teamMembers }: EventTeamAssignmentT
     () =>
       hosts
         .map((host) => memberOptions.find((option) => Number(option.value) === host.userId))
-        .filter(Boolean),
+        .filter((option): option is (typeof memberOptions)[number] => option !== undefined),
     [hosts, memberOptions]
   );
 
