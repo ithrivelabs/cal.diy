@@ -154,6 +154,13 @@ const KBAR_ACTION_CONFIGS: ActionConfig[] = [
     href: "/teams",
   },
   {
+    id: "admin",
+    name: "admin",
+    shortcut: ["a", "d"],
+    keywords: "admin users availability team management",
+    href: "/admin",
+  },
+  {
     id: "password",
     name: "change_password",
     section: "security",

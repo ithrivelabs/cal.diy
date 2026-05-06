@@ -73,7 +73,7 @@ export const TeamMembersView = ({ teamSlug }: TeamMembersViewProps) => {
             <Button color="secondary">{t("settings")}</Button>
           </Link>
           <Link href={`/event-types?teamId=${teamId}`}>
-            <Button color="primary">{t("event_types")}</Button>
+            <Button color="primary">{t("events")}</Button>
           </Link>
         </div>
       </div>

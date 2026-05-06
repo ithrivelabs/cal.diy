@@ -210,7 +210,7 @@ export const NavigationItem: React.FC<{
             aria-label={t(item.name)}
             target={item.target}
             className={classNames(
-              "todesktop:py-[7px] text-default group flex items-center rounded-md px-2 py-1.5 text-sm font-medium transition",
+              "todesktop:py-[7px] text-default group flex w-full items-center rounded-md px-2 py-1.5 text-sm font-medium transition",
               item.child
                 ? `aria-[aria-current='page']:bg-transparent!`
                 : `[&[aria-current='page']]:bg-emphasis`,

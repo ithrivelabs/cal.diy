@@ -421,3 +421,6 @@ export const IntlSupportedTimeZones = [
   "Pacific/Wake",
   "Pacific/Wallis",
 ] as const;
+
+/** India Standard Time (IST) — default when a schedule has no timezone set. */
+export const DEFAULT_TIMEZONE_IST = "Asia/Kolkata";

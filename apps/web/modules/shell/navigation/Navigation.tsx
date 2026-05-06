@@ -36,6 +36,12 @@ const getNavigationItems = (): NavigationItemType[] => [
     isCurrent: ({ pathname }) => pathname?.startsWith("/teams") ?? false,
   },
   {
+    name: "admin",
+    href: "/admin",
+    icon: "shield",
+    isCurrent: ({ pathname }) => pathname?.startsWith("/admin") ?? false,
+  },
+  {
     name: "apps",
     href: "/apps",
     icon: "grid-3x3",
@@ -95,7 +101,9 @@ export const Navigation = () => {
   return (
     <nav className="mt-2 flex-1 md:px-2 lg:mt-4 lg:px-0">
       {desktopNavigationItems.map((item) => (
-        <NavigationItem key={item.name} item={item} />
+        <div key={item.name} className="w-full">
+          <NavigationItem item={item} />
+        </div>
       ))}
       <div className="mt-0.5 text-subtle lg:hidden">
         <KBarTrigger />

@@ -85,7 +85,7 @@ export const TeamSettingsView = ({ teamSlug }: TeamSettingsViewProps) => {
             <Button color="secondary">{t("team_members")}</Button>
           </Link>
           <Link href={`/event-types?teamId=${teamQuery.data.team.id}`}>
-            <Button color="primary">{t("event_types")}</Button>
+            <Button color="primary">{t("events")}</Button>
           </Link>
         </div>
       </div>
