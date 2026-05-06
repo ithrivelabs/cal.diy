@@ -331,6 +331,14 @@ const nextConfig = (phase: string): NextConfig => {
           destination: "/apps/routing-forms/:path*",
         },
         {
+          source: "/team/:user/:type",
+          destination: "/:user/:type?isTeamEvent=true",
+        },
+        {
+          source: "/team/:user/:type/embed",
+          destination: "/:user/:type/embed?isTeamEvent=true",
+        },
+        {
           source: "/org/:slug",
           destination: "/team/:slug",
         },

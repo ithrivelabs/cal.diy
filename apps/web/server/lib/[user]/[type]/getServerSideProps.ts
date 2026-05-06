@@ -115,6 +115,7 @@ async function getDynamicGroupPageProps(context: GetServerSidePropsContext) {
   const session = await getServerSession({ req: context.req });
   const { user: usernames, type: slug } = paramsSchema.parse(context.params);
   const { rescheduleUid, bookingUid } = context.query;
+  const isTeamEvent = context.query.isTeamEvent === "true";
   const allowRescheduleForCancelledBooking = context.query.allowRescheduleForCancelledBooking === "true";
   const currentOrgDomain = null;
   const isValidOrgDomain = false;
@@ -153,6 +154,7 @@ async function getDynamicGroupPageProps(context: GetServerSidePropsContext) {
     {
       username: usernames.join("+"),
       eventSlug: slug,
+      isTeamEvent,
       org,
       fromRedirectOfNonOrgLink: context.query.orgRedirection === "true",
     },
@@ -214,6 +216,7 @@ async function getUserPageProps(context: GetServerSidePropsContext) {
   const { user: usernames, type: slug } = paramsSchema.parse(context.params);
   const username = usernames[0];
   const { rescheduleUid, bookingUid } = context.query;
+  const isTeamEvent = context.query.isTeamEvent === "true";
   const allowRescheduleForCancelledBooking = context.query.allowRescheduleForCancelledBooking === "true";
   const currentOrgDomain = null;
   const isValidOrgDomain = false;
@@ -230,9 +233,11 @@ async function getUserPageProps(context: GetServerSidePropsContext) {
     return redirect;
   }
 
-  const [user] = await getUsersInOrgContext([username], isValidOrgDomain ? currentOrgDomain : null);
+  const [user] = isTeamEvent
+    ? [null]
+    : await getUsersInOrgContext([username], isValidOrgDomain ? currentOrgDomain : null);
 
-  if (!user) {
+  if (!isTeamEvent && !user) {
     return {
       notFound: true,
     } as const;
@@ -246,6 +251,7 @@ async function getUserPageProps(context: GetServerSidePropsContext) {
     {
       username,
       eventSlug: slug,
+      isTeamEvent,
       org,
       fromRedirectOfNonOrgLink: context.query.orgRedirection === "true",
     },
@@ -258,20 +264,24 @@ async function getUserPageProps(context: GetServerSidePropsContext) {
     } as const;
   }
 
-  const allowSEOIndexing = org
+  const allowSEOIndexing = isTeamEvent
+    ? true
+    : org
     ? user?.profile?.organization?.organizationSettings?.allowSEOIndexing
       ? user?.allowSEOIndexing
       : false
-    : user?.allowSEOIndexing;
+      : user?.allowSEOIndexing ?? null;
 
   const props: Props = {
     eventData: eventData,
     user: username,
     slug,
-    isBrandingHidden: shouldHideBrandingForUserEvent({
-      eventTypeId: eventData.id,
-      owner: user,
-    }),
+    isBrandingHidden: user
+      ? shouldHideBrandingForUserEvent({
+          eventTypeId: eventData.id,
+          owner: user,
+        })
+      : false,
     isSEOIndexable: allowSEOIndexing,
     themeBasis: username,
     bookingUid: bookingUid ? `${bookingUid}` : null,

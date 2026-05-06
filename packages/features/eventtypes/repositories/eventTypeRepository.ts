@@ -1138,6 +1138,29 @@ export class EventTypeRepository implements IEventTypesRepository {
     });
   }
 
+  async findFirstTeamEventTypeIdBySlug({
+    teamSlug,
+    eventTypeSlug,
+  }: {
+    teamSlug: string;
+    eventTypeSlug: string;
+  }) {
+    return this.prismaClient.eventType.findFirst({
+      where: {
+        team: {
+          slug: teamSlug,
+        },
+        OR: [{ slug: eventTypeSlug }, { slug: { startsWith: `${eventTypeSlug}-team-id-` } }],
+      },
+      select: {
+        id: true,
+      },
+      orderBy: {
+        slug: "asc",
+      },
+    });
+  }
+
   async findByIdIncludeHostsAndTeam({ id }: { id: number }) {
     const eventType = await this.prismaClient.eventType.findUnique({
       where: {

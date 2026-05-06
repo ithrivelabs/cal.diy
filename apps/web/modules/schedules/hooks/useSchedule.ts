@@ -135,7 +135,8 @@ export const useSchedule = ({
       enabledProp,
   };
 
-  const isCallingApiV2Slots = useApiV2 && Boolean(isTeamEvent) && options.enabled;
+  const hasApiV2Endpoint = Boolean(process.env.NEXT_PUBLIC_API_V2_URL);
+  const isCallingApiV2Slots = hasApiV2Endpoint && useApiV2 && Boolean(isTeamEvent) && options.enabled;
 
   // API V2 query for team events
   const teamScheduleV2 = useApiV2AvailableSlots({
