@@ -12,7 +12,7 @@ import getEnabledAppsFromCredentials from "./_utils/getEnabledAppsFromCredential
 import { defaultLocations } from "./locations";
 
 export async function getLocationGroupedOptions(
-  userOrTeamId: { userId: number } | { teamId: number },
+  userOrTeamId: { userId: number } | { teamId: number; userId?: number },
   t: TFunction
 ) {
   const apps: Record<
@@ -33,6 +33,7 @@ export async function getLocationGroupedOptions(
   let user = null;
   if ("teamId" in userOrTeamId) {
     const teamId = userOrTeamId.teamId;
+    let teamIdSearchObject: Prisma.CredentialWhereInput;
     // See if the team event belongs to an org
     const org = await prisma.team.findFirst({
       where: {
@@ -45,13 +46,21 @@ export async function getLocationGroupedOptions(
     });
 
     if (org) {
-      idToSearchObject = {
+      teamIdSearchObject = {
         teamId: {
           in: [teamId, org.id],
         },
       };
     } else {
-      idToSearchObject = { teamId };
+      teamIdSearchObject = { teamId };
+    }
+
+    if (userOrTeamId.userId) {
+      idToSearchObject = {
+        OR: [teamIdSearchObject, { userId: userOrTeamId.userId }],
+      };
+    } else {
+      idToSearchObject = teamIdSearchObject;
     }
   } else {
     idToSearchObject = { userId: userOrTeamId.userId };

@@ -16,7 +16,10 @@ export const locationOptionsHandler = async ({ ctx, input }: LocationOptionsOpti
 
   const t = await getTranslation(ctx.user.locale ?? "en", "common");
 
-  const locationOptions = await getLocationGroupedOptions(teamId ? { teamId } : { userId: ctx.user.id }, t);
+  const locationOptions = await getLocationGroupedOptions(
+    teamId ? { teamId, userId: ctx.user.id } : { userId: ctx.user.id },
+    t
+  );
   // If it is a team event then move the "use host location" option to top
   if (input.teamId) {
     const conferencingIndex = locationOptions.findIndex((option) => option.label === "Conferencing");

@@ -35,6 +35,14 @@ export const AdminUserAvailabilityDialog = ({ open, onOpenChange, userId, userLa
   );
 
   useEffect(() => {
+    if (!open) {
+      setSelectedScheduleId(null);
+      return;
+    }
+    setSelectedScheduleId(null);
+  }, [userId, open]);
+
+  useEffect(() => {
     if (!selectedScheduleId && schedulesQuery.data?.schedules.length) {
       const defaultSchedule = schedulesQuery.data.schedules.find((item) => item.isDefault);
       setSelectedScheduleId(defaultSchedule?.id ?? schedulesQuery.data.schedules[0].id);
@@ -115,6 +123,7 @@ export const AdminUserAvailabilityDialog = ({ open, onOpenChange, userId, userLa
 
           {schedule ? (
             <AvailabilitySettings
+              key={`${userId ?? "no-user"}-${selectedScheduleId ?? "no-schedule"}`}
               schedule={schedule}
               travelSchedules={[]}
               isDeleting={deleteMutation.isPending}

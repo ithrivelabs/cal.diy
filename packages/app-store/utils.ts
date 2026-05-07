@@ -47,8 +47,13 @@ export const ALL_APPS = Object.values(ALL_APPS_MAP);
 function getApps(credentials: CredentialDataWithTeamName[], filterOnCredentials?: boolean) {
   const apps = ALL_APPS.reduce((reducedArray, appMeta) => {
     const appCredentials = credentials.filter((credential) => credential.appId === appMeta.slug);
+    const dependencyCredentials =
+      appMeta.dependencies?.length && !appCredentials.length
+        ? credentials.filter((credential) => credential.appId && appMeta.dependencies?.includes(credential.appId))
+        : [];
 
-    if (filterOnCredentials && !appCredentials.length && !appMeta.isGlobal) return reducedArray;
+    const hasAnyRelevantCredentials = appCredentials.length > 0 || dependencyCredentials.length > 0;
+    if (filterOnCredentials && !hasAnyRelevantCredentials && !appMeta.isGlobal) return reducedArray;
 
     let locationOption: LocationOption | null = null;
 
@@ -80,7 +85,8 @@ function getApps(credentials: CredentialDataWithTeamName[], filterOnCredentials?
     }
 
     /** Check if app has location option AND add it if user has credentials for it */
-    if (appCredentials.length > 0 && appMeta?.appData?.location) {
+    const effectiveCredentialsForLocation = appCredentials.length ? appCredentials : dependencyCredentials;
+    if (effectiveCredentialsForLocation.length > 0 && appMeta?.appData?.location) {
       locationOption = {
         value: appMeta.appData.location.type,
         label: appMeta.appData.location.label || "No label set",
@@ -88,7 +94,8 @@ function getApps(credentials: CredentialDataWithTeamName[], filterOnCredentials?
       };
     }
 
-    const credential: (typeof appCredentials)[number] | null = appCredentials[0] || null;
+    const effectiveCredentialsForApp = appCredentials.length ? appCredentials : dependencyCredentials;
+    const credential: (typeof appCredentials)[number] | null = effectiveCredentialsForApp[0] || null;
 
     reducedArray.push({
       ...appMeta,
@@ -96,7 +103,7 @@ function getApps(credentials: CredentialDataWithTeamName[], filterOnCredentials?
        * @deprecated use `credentials`
        */
       credential,
-      credentials: appCredentials,
+      credentials: effectiveCredentialsForApp,
       /** Option to display in `location` field while editing event types */
       locationOption,
     });

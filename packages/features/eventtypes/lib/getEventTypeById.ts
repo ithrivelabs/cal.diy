@@ -200,7 +200,7 @@ export const getEventTypeById = async ({
   }
 
   const locationOptions = await getLocationGroupedOptions(
-    eventType.teamId ? { teamId: eventType.teamId } : { userId },
+    eventType.teamId ? { teamId: eventType.teamId, userId } : { userId },
     t
   );
   if (eventType.schedulingType === SchedulingType.MANAGED) {
