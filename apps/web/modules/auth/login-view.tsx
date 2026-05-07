@@ -233,20 +233,19 @@ export default function Login({
                 </div>
 
                 {/* Divider */}
-                <div className="my-6 flex items-center gap-4">
+                {/* <div className="my-6 flex items-center gap-4">
                   <Separator className="flex-1" />
                   <span className="text-sm text-zinc-400">{t("or").toLowerCase()}</span>
                   <Separator className="flex-1" />
-                </div>
+                </div> */}
               </>
             )}
 
-            <form onSubmit={methods.handleSubmit(onSubmit)} noValidate data-testid="login-form">
+            {/* <form onSubmit={methods.handleSubmit(onSubmit)} noValidate data-testid="login-form">
               <input defaultValue={csrfToken || undefined} type="hidden" hidden {...register("csrfToken")} />
 
               {!twoFactorRequired && (
                 <div className="space-y-6">
-                  {/* Email Field */}
                   <Field>
                     <FieldLabel>{t("email")}</FieldLabel>
                     <Input
@@ -263,7 +262,6 @@ export default function Login({
                     )}
                   </Field>
 
-                  {/* Password Field */}
                   <Field>
                     <div className="flex w-full items-center justify-between">
                       <FieldLabel>{t("password")}</FieldLabel>
@@ -298,17 +296,14 @@ export default function Login({
                 </div>
               )}
 
-              {/* Two Factor */}
               {twoFactorRequired && (
                 <div className="space-y-4">
                   {!twoFactorLostAccess ? <TwoFactor center /> : <BackupCode center />}
                 </div>
               )}
 
-              {/* Error Message */}
               {errorMessage && <Alert severity="error" title={errorMessage} className="mt-4" />}
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 variant="outline"
@@ -316,9 +311,8 @@ export default function Login({
                 disabled={formState.isSubmitting}>
                 {twoFactorRequired ? t("submit") : t("continue")}
               </Button>
-            </form>
+            </form> */}
 
-            {/* Two Factor Footer */}
             {twoFactorRequired && (
               <div className="mt-4 flex justify-center gap-4">
                 {!totpEmail ? (
@@ -365,7 +359,6 @@ export default function Login({
           </FormProvider>
         </div>
 
-        {/* Footer Links */}
         {!twoFactorRequired && (
           <div className="mt-6 flex items-center justify-center gap-4 text-center">
             {showSignupLink && (
