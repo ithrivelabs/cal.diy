@@ -36,7 +36,7 @@ const EmailSchedulingBodyHeader = (props: { headerType: BodyHeadType; headStyles
           }}>
           <Row border="0" role="presentation" style={{ borderCollapse: "collapse", borderSpacing: "0px" }}>
             <td style={{ width: 64 }}>
-              <img
+              {/* <img
                 height="64"
                 src={image}
                 style={{
@@ -50,7 +50,7 @@ const EmailSchedulingBodyHeader = (props: { headerType: BodyHeadType; headStyles
                 }}
                 width="64"
                 alt=""
-              />
+              /> */}
             </td>
           </Row>
         </td>

@@ -24,6 +24,10 @@ export const BaseEmailHtml = (props: {
   subtitle?: React.ReactNode | string;
   headerType?: BodyHeadType;
   hideLogo?: boolean;
+  topLogoSrc?: string;
+  topLogoAlt?: string;
+  topLogoWidth?: number;
+  topLogoHeight?: number;
 }) => {
   return (
     <Html>
@@ -61,6 +65,22 @@ export const BaseEmailHtml = (props: {
             {props.headerType && (
               <EmailSchedulingBodyHeader headerType={props.headerType} headStyles={{ border: 0 }} />
             )}
+            {props.topLogoSrc && (
+              <div style={{ textAlign: "center", padding: "20px 0 8px" }}>
+                <img
+                  src={props.topLogoSrc}
+                  alt={props.topLogoAlt || "Logo"}
+                  width={props.topLogoWidth || 40}
+                  height={props.topLogoHeight || 40}
+                  style={{
+                    display: "inline-block",
+                    border: 0,
+                    outline: "none",
+                    textDecoration: "none",
+                  }}
+                />
+              </div>
+            )}
             {props.title && (
               <EmailScheduledBodyHeaderContent
                 headStyles={{ border: 0 }}
@@ -68,6 +88,7 @@ export const BaseEmailHtml = (props: {
                 subtitle={props.subtitle}
               />
             )}
+            
             {(props.headerType || props.title || props.subtitle) && (
               <EmailSchedulingBodyDivider headStyles={{ border: 0 }} />
             )}

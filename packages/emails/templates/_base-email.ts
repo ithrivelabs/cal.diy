@@ -11,6 +11,16 @@ import { prisma } from "@calcom/prisma";
 
 import { sanitizeDisplayName } from "../lib/sanitizeDisplayName";
 
+const getConfiguredCcRecipients = () => {
+  const rawCc = process.env.BOOKING_EMAILS_CC;
+  if (!rawCc) return [];
+
+  return rawCc
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+};
+
 export default class BaseEmail {
   name = "";
 
@@ -52,6 +62,15 @@ export default class BaseEmail {
 
     const from = "from" in payload ? (payload.from as string) : "";
     const to = "to" in payload ? (payload.to as string) : "";
+    const existingCc =
+      "cc" in payload
+        ? String(payload.cc)
+            .split(",")
+            .map((email) => email.trim())
+            .filter(Boolean)
+        : [];
+    const configuredCc = getConfiguredCcRecipients();
+    const combinedCc = Array.from(new Set([...existingCc, ...configuredCc]));
 
     if (isSmsCalEmail(to)) {
       console.log(`Skipped Sending Email to faux email: ${to}`);
@@ -68,6 +87,7 @@ export default class BaseEmail {
       ...{
         from: sanitizedFrom,
         to: sanitizedTo,
+        ...(combinedCc.length > 0 ? { cc: combinedCc.map((email) => sanitizeDisplayName(email)).join(",") } : {}),
       },
       ...(parseSubject.success && { subject: decodeHTML(parseSubject.data) }),
     };
