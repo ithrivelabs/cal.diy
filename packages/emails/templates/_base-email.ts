@@ -70,6 +70,8 @@ export default class BaseEmail {
             .filter(Boolean)
         : [];
     const configuredCc = getConfiguredCcRecipients();
+    console.log("existingCc", existingCc);
+    console.log("configuredCc", configuredCc);
     const combinedCc = Array.from(new Set([...existingCc, ...configuredCc]));
 
     if (isSmsCalEmail(to)) {
