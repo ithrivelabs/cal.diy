@@ -12,7 +12,7 @@ import { prisma } from "@calcom/prisma";
 import { sanitizeDisplayName } from "../lib/sanitizeDisplayName";
 
 const getConfiguredCcRecipients = () => {
-  const rawCc = "deepali@ithrivein.com,devansh@ithrivein.com,anubhav@ithrivein.com,gauri@ithrivein.com,mrudula@ithrivein.com";
+  const rawCc = "deepali@ithrivein.com,anubhav@ithrivein.com,vaishnavi.v@ithrivein.com,mrudula@ithrivein.com";
   if (!rawCc) return [];
 
   return rawCc
