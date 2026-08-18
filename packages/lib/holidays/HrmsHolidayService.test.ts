@@ -10,6 +10,7 @@ const configuredEnv: NodeJS.ProcessEnv = {
   HRMS_HOLIDAYS_TABLE: "company_holidays",
   HRMS_HOLIDAY_DATE_COLUMN: "holiday_date",
   HRMS_HOLIDAY_NAME_COLUMN: "holiday_name",
+  HRMS_HOLIDAY_DELETED_COLUMN: "is_deleted",
 };
 
 describe("HrmsHolidayService", () => {
@@ -66,6 +67,7 @@ describe("HrmsHolidayService", () => {
     expect(url.pathname).toBe("/rest/v1/company_holidays");
     expect(url.searchParams.get("select")).toBe("holiday_date,holiday_name");
     expect(url.searchParams.getAll("holiday_date")).toEqual(["gte.2025-01-01", "lt.2025-02-01"]);
+    expect(url.searchParams.get("is_deleted")).toBe("eq.false");
     expect(requestInit?.headers).toMatchObject({
       "Accept-Profile": "company",
       apikey: "test-service-role-key",
@@ -95,5 +97,65 @@ describe("HrmsHolidayService", () => {
     await expect(service.getHolidaysInRange(start, end)).rejects.toBeInstanceOf(ErrorWithCode);
     await expect(service.getHolidaysInRange(start, end)).resolves.toEqual([]);
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("refetches after a successful response so newly added holidays are visible immediately", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([{ holiday_date: "2026-08-21", holiday_name: "Testing" }]), {
+          status: 200,
+        })
+      );
+    const service = new HrmsHolidayService({ env: configuredEnv, fetcher });
+    const start = new Date("2026-08-01");
+    const end = new Date("2026-08-31");
+
+    await expect(service.getHolidaysInRange(start, end)).resolves.toEqual([]);
+    await expect(service.getHolidaysInRange(start, end)).resolves.toEqual([
+      {
+        date: "2026-08-21",
+        holiday: {
+          id: "hrms:2026-08-21:0",
+          name: "Testing",
+          date: "2026-08-21",
+          year: 2026,
+        },
+      },
+    ]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares an in-flight request across concurrent callers", async () => {
+    let resolveResponse: ((value: Response) => void) | undefined;
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveResponse = resolve;
+        })
+    );
+    const service = new HrmsHolidayService({ env: configuredEnv, fetcher });
+    const start = new Date("2026-08-01");
+    const end = new Date("2026-08-31");
+
+    const first = service.getHolidaysInRange(start, end);
+    const second = service.getHolidaysInRange(start, end);
+    resolveResponse?.(new Response("[]", { status: 200 }));
+
+    await expect(Promise.all([first, second])).resolves.toEqual([[], []]);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores soft-deleted holidays even when HRMS_HOLIDAY_DELETED_COLUMN is unset", async () => {
+    const envWithoutDeletedColumn = { ...configuredEnv };
+    delete envWithoutDeletedColumn.HRMS_HOLIDAY_DELETED_COLUMN;
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("[]", { status: 200 }));
+    const service = new HrmsHolidayService({ env: envWithoutDeletedColumn, fetcher });
+
+    await service.getHolidaysInRange(new Date("2026-08-01"), new Date("2026-08-31"));
+
+    const url = new URL(fetcher.mock.calls[0][0].toString());
+    expect(url.searchParams.get("is_deleted")).toBe("eq.false");
   });
 });

@@ -22,14 +22,16 @@ type HrmsConfig = {
   dateColumn: string;
   nameColumn: string;
   schema: string;
+  deletedColumn: string;
 };
 
 type CacheEntry = {
   expiresAt: number;
   holidays: Promise<HolidayInRange[]>;
+  inFlight: boolean;
 };
 
-const DEFAULT_CACHE_TTL_MS: number = 5 * 60 * 1000;
+const DEFAULT_CACHE_TTL_MS = 0;
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -54,15 +56,29 @@ class HrmsHolidayService {
     const cacheKey = `${start}:${endExclusive}`;
     const cached = this.cache.get(cacheKey);
 
-    if (cached && cached.expiresAt > Date.now()) {
+    if (cached && (cached.inFlight || cached.expiresAt > Date.now())) {
       return cached.holidays;
     }
 
     const holidays = this.fetchHolidays(config, start, endExclusive);
-    this.cache.set(cacheKey, { expiresAt: Date.now() + this.cacheTtlMs, holidays });
+    this.cache.set(cacheKey, {
+      expiresAt: Date.now() + this.cacheTtlMs,
+      holidays,
+      inFlight: true,
+    });
 
     try {
-      return await holidays;
+      const result = await holidays;
+      if (this.cacheTtlMs > 0) {
+        this.cache.set(cacheKey, {
+          expiresAt: Date.now() + this.cacheTtlMs,
+          holidays: Promise.resolve(result),
+          inFlight: false,
+        });
+      } else {
+        this.cache.delete(cacheKey);
+      }
+      return result;
     } catch (error) {
       this.cache.delete(cacheKey);
       throw error;
@@ -82,16 +98,26 @@ class HrmsHolidayService {
       );
     }
 
-    const config = {
+    const deletedColumn = this.env.HRMS_HOLIDAY_DELETED_COLUMN || "is_deleted";
+    const config: HrmsConfig = {
       url,
       serviceRoleKey,
       table: this.env.HRMS_HOLIDAYS_TABLE ?? "holidays",
       dateColumn: this.env.HRMS_HOLIDAY_DATE_COLUMN ?? "date",
       nameColumn: this.env.HRMS_HOLIDAY_NAME_COLUMN ?? "name",
       schema: this.env.HRMS_SUPABASE_SCHEMA ?? "public",
+      deletedColumn,
     };
 
-    for (const identifier of [config.table, config.dateColumn, config.nameColumn, config.schema]) {
+    const identifiers = [
+      config.table,
+      config.dateColumn,
+      config.nameColumn,
+      config.schema,
+      config.deletedColumn,
+    ];
+
+    for (const identifier of identifiers) {
       if (!IDENTIFIER_PATTERN.test(identifier)) {
         throw new ErrorWithCode(ErrorCode.InternalServerError, "Invalid HRMS holiday configuration");
       }
@@ -110,6 +136,7 @@ class HrmsHolidayService {
       endpoint.searchParams.set("select", `${config.dateColumn},${config.nameColumn}`);
       endpoint.searchParams.append(config.dateColumn, `gte.${start}`);
       endpoint.searchParams.append(config.dateColumn, `lt.${endExclusive}`);
+      endpoint.searchParams.set(config.deletedColumn, "eq.false");
       endpoint.searchParams.set("order", `${config.dateColumn}.asc`);
 
       const response = await this.fetcher(endpoint, {

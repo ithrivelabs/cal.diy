@@ -14,6 +14,7 @@ declare namespace NodeJS {
     readonly HRMS_HOLIDAYS_TABLE: string | undefined;
     readonly HRMS_HOLIDAY_DATE_COLUMN: string | undefined;
     readonly HRMS_HOLIDAY_NAME_COLUMN: string | undefined;
+    readonly HRMS_HOLIDAY_DELETED_COLUMN: string | undefined;
     /** @deprecated use `NEXT_PUBLIC_WEBAPP_URL` */
     readonly BASE_URL: string | undefined;
     /** @deprecated use `NEXT_PUBLIC_WEBAPP_URL` */
