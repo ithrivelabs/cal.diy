@@ -766,7 +766,8 @@ async function handler(
     reqBody.timeZone,
     eventType,
     eventTimeZone,
-    tracingLogger
+    tracingLogger,
+    originalRescheduledBooking?.startTime ?? null
   );
 
   validateEventLength({

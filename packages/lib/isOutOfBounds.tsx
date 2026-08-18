@@ -3,6 +3,7 @@ import type { EventType } from "@calcom/prisma/client";
 import { PeriodType } from "@calcom/prisma/enums";
 
 import { ROLLING_WINDOW_PERIOD_MAX_DAYS_TO_CHECK } from "./constants";
+import { getMinimumBookingNoticeCutoff } from "./getMinimumBookingNoticeCutoff";
 import logger from "./logger";
 import { safeStringify } from "./safeStringify";
 
@@ -243,16 +244,27 @@ export function getRollingWindowEndDate({
 export function isTimeOutOfBounds({
   time,
   minimumBookingNotice,
+  timeZone,
+  utcOffset,
+  originalBookingStartTime,
 }: {
   time: dayjs.ConfigType;
   minimumBookingNotice?: number;
-}) {
+  timeZone?: string | null;
+  utcOffset?: number | null;
+  originalBookingStartTime?: Date | string | null;
+}): boolean {
   const date = dayjs(time);
 
   guardAgainstBookingInThePast(date.toDate());
 
-  if (minimumBookingNotice) {
-    const minimumBookingStartDate = dayjs().add(minimumBookingNotice, "minutes");
+  if (minimumBookingNotice || originalBookingStartTime) {
+    const minimumBookingStartDate = getMinimumBookingNoticeCutoff({
+      minimumBookingNotice: minimumBookingNotice ?? 0,
+      timeZone,
+      utcOffset,
+      originalBookingStartTime,
+    });
     if (date.isBefore(minimumBookingStartDate)) {
       return true;
     }
@@ -268,15 +280,24 @@ export function isTimeOutOfBounds({
 export function getPastTimeAndMinimumBookingNoticeBoundsStatus({
   time,
   minimumBookingNotice,
+  timeZone,
+  originalBookingStartTime,
 }: {
   time: dayjs.ConfigType;
   minimumBookingNotice?: number;
+  timeZone?: string | null;
+  originalBookingStartTime?: Date | string | null;
 }): {
   isOutOfBounds: boolean;
   reason: "minBookNoticeViolation" | "slotInPast" | null;
 } {
   try {
-    const isOutOfBounds = isTimeOutOfBounds({ time, minimumBookingNotice });
+    const isOutOfBounds = isTimeOutOfBounds({
+      time,
+      minimumBookingNotice,
+      timeZone,
+      originalBookingStartTime,
+    });
     return {
       isOutOfBounds,
       reason: isOutOfBounds ? "minBookNoticeViolation" : null,
@@ -360,10 +381,16 @@ export default function isOutOfBounds(
     eventUtcOffset: number;
     bookerUtcOffset: number;
   },
-  minimumBookingNotice?: number
+  minimumBookingNotice?: number,
+  originalBookingStartTime?: Date | string | null
 ) {
   const log = logger.getSubLogger({ prefix: ["isOutOfBounds"] });
-  const isOutOfBoundsByTime = isTimeOutOfBounds({ time, minimumBookingNotice });
+  const isOutOfBoundsByTime = isTimeOutOfBounds({
+    time,
+    minimumBookingNotice,
+    utcOffset: bookerUtcOffset,
+    originalBookingStartTime,
+  });
   const periodLimits = calculatePeriodLimits({
     periodType,
     periodDays,

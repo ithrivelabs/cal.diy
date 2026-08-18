@@ -51,6 +51,7 @@ import { filterBlockedHosts } from "@calcom/features/watchlist/operations/filter
 import { shouldIgnoreContactOwner } from "@calcom/lib/bookings/routing/utils";
 import { RESERVED_SUBDOMAINS } from "@calcom/lib/constants";
 import { getUTCOffsetByTimezone } from "@calcom/lib/dayjs";
+import { getMinimumBookingNoticeCutoff } from "@calcom/lib/getMinimumBookingNoticeCutoff";
 import { descendingLimitKeys, intervalLimitKeyToUnit } from "@calcom/lib/intervalLimits/intervalLimit";
 import type { IntervalLimit } from "@calcom/lib/intervalLimits/intervalLimitSchema";
 import { parseBookingLimit } from "@calcom/lib/intervalLimits/isBookingLimits";
@@ -577,7 +578,10 @@ export class AvailableSlotsService {
 
             const selectedDuration = (duration || eventType.length) ?? 0;
 
-            const { title: durationTitle, source: durationSource } = LimitSources.eventDurationLimit({ limit, unit });
+            const { title: durationTitle, source: durationSource } = LimitSources.eventDurationLimit({
+              limit,
+              unit,
+            });
 
             if (selectedDuration > limit) {
               limitManager.addBusyTime({
@@ -677,11 +681,21 @@ export class AvailableSlotsService {
     "getUsersWithCredentials"
   );
 
-  private getStartTime(startTimeInput: string, timeZone?: string, minimumBookingNotice?: number) {
-    const startTimeMin = dayjs.utc().add(minimumBookingNotice || 1, "minutes");
+  private getStartTime(
+    startTimeInput: string,
+    timeZone?: string,
+    minimumBookingNotice?: number,
+    originalBookingStartTime?: Date | string | null
+  ) {
+    const cutoffTimeZone = timeZone === "Etc/GMT" ? "UTC" : timeZone;
+    const startTimeMin = getMinimumBookingNoticeCutoff({
+      minimumBookingNotice: minimumBookingNotice || 1,
+      timeZone: cutoffTimeZone,
+      originalBookingStartTime,
+    });
     const startTime = timeZone === "Etc/GMT" ? dayjs.utc(startTimeInput) : dayjs(startTimeInput).tz(timeZone);
 
-    return startTimeMin.isAfter(startTime) ? startTimeMin.tz(timeZone) : startTime;
+    return startTimeMin.isAfter(startTime) ? startTimeMin.tz(cutoffTimeZone) : startTime;
   }
   private async calculateHostsAndAvailabilities({
     input,
@@ -926,6 +940,11 @@ export class AvailableSlotsService {
       throw new TRPCError({ code: "NOT_FOUND" });
     }
 
+    const originalBooking = input.rescheduleUid
+      ? await this.dependencies.bookingRepo.findStartTimeByUid({ bookingUid: input.rescheduleUid })
+      : null;
+    const originalBookingStartTime = originalBooking?.startTime ?? null;
+
     // Use "slots" mode to enable cache when available for getting calendar availability
     const mode: CalendarFetchMode = "slots";
     if (isEventTypeLoggingEnabled({ eventTypeId: eventType.id })) {
@@ -952,7 +971,8 @@ export class AvailableSlotsService {
     const startTime = this.getStartTime(
       startTimeAdjustedForRollingWindowComputation,
       input.timeZone,
-      eventType.minimumBookingNotice
+      eventType.minimumBookingNotice,
+      originalBookingStartTime
     );
     const endTime =
       input.timeZone === "Etc/GMT" ? dayjs.utc(input.endTime) : dayjs(input.endTime).utc().tz(input.timeZone);
@@ -1018,12 +1038,12 @@ export class AvailableSlotsService {
         // adjust start time so we can check for available slots in the first two weeks
         startTime:
           hasFallbackRRHosts && startTime.isBefore(twoWeeksFromNow)
-            ? this.getStartTime(dayjs().format(), input.timeZone, eventType.minimumBookingNotice)
+            ? this.getStartTime(dayjs().format(), input.timeZone, eventType.minimumBookingNotice, originalBookingStartTime)
             : startTime,
         // adjust end time so we can check for available slots in the first two weeks
         endTime:
           hasFallbackRRHosts && endTime.isBefore(twoWeeksFromNow)
-            ? this.getStartTime(twoWeeksFromNow.format(), input.timeZone, eventType.minimumBookingNotice)
+            ? this.getStartTime(twoWeeksFromNow.format(), input.timeZone, eventType.minimumBookingNotice, originalBookingStartTime)
             : endTime,
         bypassBusyCalendarTimes,
         silentCalendarFailures,
@@ -1106,6 +1126,7 @@ export class AvailableSlotsService {
       datesOutOfOffice: allUsersAvailability[0]?.datesOutOfOffice,
       showOptimizedSlots: eventType.showOptimizedSlots,
       datesOutOfOfficeTimeZone: allUsersAvailability[0]?.timeZone,
+      originalBookingStartTime,
     });
 
     let availableTimeSlots: typeof timeSlots = [];
@@ -1351,6 +1372,8 @@ export class AvailableSlotsService {
             isOutOfBounds = isTimeOutOfBounds({
               time: slot.time,
               minimumBookingNotice: eventType.minimumBookingNotice,
+              timeZone: input.timeZone,
+              originalBookingStartTime,
             });
           } catch (error) {
             if (error instanceof BookingDateInPastError) {

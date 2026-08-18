@@ -75,6 +75,108 @@ describe("Tests the slot logic", () => {
     ).toHaveLength(11);
   });
 
+  it("shows all slots on the first bookable calendar day for a whole-day notice", () => {
+    vi.setSystemTime(dayjs.tz("2026-08-18T16:00:00", "Asia/Kolkata").toDate());
+
+    try {
+      const inviteeDate = dayjs.tz("2026-08-21T00:00:00", "Asia/Kolkata");
+      const slots = getSlots({
+        inviteeDate,
+        frequency: 60,
+        minimumBookingNotice: 4320,
+        eventLength: 60,
+        dateRanges: [
+          {
+            start: dayjs.tz("2026-08-21T09:00:00", "Asia/Kolkata"),
+            end: dayjs.tz("2026-08-21T17:00:00", "Asia/Kolkata"),
+          },
+        ],
+      });
+
+      expect(slots.map((slot) => slot.time.format("HH:mm"))).toEqual([
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00",
+      ]);
+    } finally {
+      vi.setSystemTime(dayjs.utc("2021-06-20T11:59:59Z").toDate());
+    }
+  });
+
+  it("keeps remaining slots on the original day when reschedule skips booking notice", () => {
+    vi.setSystemTime(dayjs.tz("2026-08-20T16:00:00", "Asia/Kolkata").toDate());
+
+    try {
+      const inviteeDate = dayjs.tz("2026-08-21T00:00:00", "Asia/Kolkata");
+      const dateRanges = [
+        {
+          start: dayjs.tz("2026-08-21T09:00:00", "Asia/Kolkata"),
+          end: dayjs.tz("2026-08-21T17:00:00", "Asia/Kolkata"),
+        },
+      ];
+      const originalBookingStartTime = dayjs.tz("2026-08-21T15:00:00", "Asia/Kolkata").toDate();
+
+      const withBuffer = getSlots({
+        inviteeDate,
+        frequency: 60,
+        minimumBookingNotice: 4320,
+        eventLength: 60,
+        dateRanges,
+      });
+      const rescheduleSlots = getSlots({
+        inviteeDate,
+        frequency: 60,
+        minimumBookingNotice: 4320,
+        eventLength: 60,
+        dateRanges,
+        originalBookingStartTime,
+      });
+
+      expect(withBuffer).toHaveLength(0);
+      expect(rescheduleSlots.map((slot) => slot.time.format("HH:mm"))).toEqual([
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00",
+      ]);
+    } finally {
+      vi.setSystemTime(dayjs.utc("2021-06-20T11:59:59Z").toDate());
+    }
+  });
+
+  it("does not allow reschedule onto calendar days before the original booking", () => {
+    vi.setSystemTime(dayjs.tz("2026-08-18T16:00:00", "Asia/Kolkata").toDate());
+
+    try {
+      const slots = getSlots({
+        inviteeDate: dayjs.tz("2026-08-19T00:00:00", "Asia/Kolkata"),
+        frequency: 60,
+        minimumBookingNotice: 0,
+        eventLength: 60,
+        originalBookingStartTime: dayjs.tz("2026-08-21T15:00:00", "Asia/Kolkata").toDate(),
+        dateRanges: [
+          {
+            start: dayjs.tz("2026-08-19T09:00:00", "Asia/Kolkata"),
+            end: dayjs.tz("2026-08-19T17:00:00", "Asia/Kolkata"),
+          },
+        ],
+      });
+
+      expect(slots).toHaveLength(0);
+    } finally {
+      vi.setSystemTime(dayjs.utc("2021-06-20T11:59:59Z").toDate());
+    }
+  });
+
   it("shows correct time slots for 20 minutes long events with working hours that do not end at a full hour ", async () => {
     // 72 20-minutes events in a 24h day
     const result = getSlots({

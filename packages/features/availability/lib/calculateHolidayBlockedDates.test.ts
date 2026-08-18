@@ -1,13 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
 import dayjs from "@calcom/dayjs";
 import { getHolidayService } from "@calcom/lib/holidays";
-
+import { getHrmsHolidayService } from "@calcom/lib/holidays/HrmsHolidayService";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserAvailabilityService } from "./getUserAvailability";
 
 vi.mock("@calcom/lib/holidays", () => ({
   getHolidayService: vi.fn(() => ({
     getHolidayDatesInRange: vi.fn(),
+  })),
+}));
+
+vi.mock("@calcom/lib/holidays/HrmsHolidayService", () => ({
+  getHrmsHolidayService: vi.fn(() => ({
+    getHolidaysInRange: vi.fn(),
   })),
 }));
 
@@ -34,6 +39,7 @@ const mockDependencies = {
 describe("UserAvailabilityService.calculateHolidayBlockedDates", () => {
   let service: UserAvailabilityService;
   let mockHolidayService: { getHolidayDatesInRange: ReturnType<typeof vi.fn> };
+  let mockHrmsHolidayService: { getHolidaysInRange: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -41,7 +47,11 @@ describe("UserAvailabilityService.calculateHolidayBlockedDates", () => {
     mockHolidayService = {
       getHolidayDatesInRange: vi.fn(),
     };
+    mockHrmsHolidayService = {
+      getHolidaysInRange: vi.fn().mockResolvedValue([]),
+    };
     vi.mocked(getHolidayService).mockReturnValue(mockHolidayService as never);
+    vi.mocked(getHrmsHolidayService).mockReturnValue(mockHrmsHolidayService as never);
   });
 
   it("should return empty object when user has no holiday settings", async () => {
@@ -78,6 +88,42 @@ describe("UserAvailabilityService.calculateHolidayBlockedDates", () => {
     );
 
     expect(result).toEqual({});
+  });
+
+  it("should block HRMS holidays when the user has no country holiday settings", async () => {
+    mockHolidayRepo.findUserSettingsSelect.mockResolvedValue(null);
+    mockHrmsHolidayService.getHolidaysInRange.mockResolvedValue([
+      {
+        date: "2025-01-01",
+        holiday: {
+          id: "hrms:2025-01-01:0",
+          name: "Annual Closure",
+          date: "2025-01-01",
+          year: 2025,
+        },
+      },
+    ]);
+
+    const result = await service.calculateHolidayBlockedDates(
+      123,
+      new Date("2024-12-31T18:30:00.000Z"),
+      new Date("2024-12-31T19:30:00.000Z"),
+      [createWorkingHours([1, 2, 4, 5])],
+      "Asia/Kolkata"
+    );
+
+    expect(mockHrmsHolidayService.getHolidaysInRange).toHaveBeenCalledWith(
+      new Date("2025-01-01T00:00:00.000Z"),
+      new Date("2025-01-01T23:59:59.999Z")
+    );
+    expect(result).toEqual({
+      "2025-01-01": {
+        fromUser: null,
+        toUser: null,
+        reason: "Annual Closure",
+        emoji: "📆",
+      },
+    });
   });
 
   it("should return empty object when no holidays in date range", async () => {

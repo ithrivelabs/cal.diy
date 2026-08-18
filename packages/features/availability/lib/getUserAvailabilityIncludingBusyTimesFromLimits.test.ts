@@ -23,6 +23,12 @@ vi.mock("@calcom/lib/holidays", () => ({
   })),
 }));
 
+vi.mock("@calcom/lib/holidays/HrmsHolidayService", () => ({
+  getHrmsHolidayService: vi.fn(() => ({
+    getHolidaysInRange: vi.fn().mockResolvedValue([]),
+  })),
+}));
+
 const mockBusyTimesService = {
   getStartEndDateforLimitCheck: vi.fn().mockReturnValue({
     limitDateFrom: dayjs("2025-01-01T00:00:00Z"),

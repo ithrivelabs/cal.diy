@@ -6,6 +6,14 @@ declare namespace NodeJS {
     readonly GOOGLE_API_CREDENTIALS: string | undefined;
     /** Google Calendar API key for fetching public holiday calendars */
     readonly GOOGLE_CALENDAR_API_KEY: string | undefined;
+    /** Server-only Supabase project URL for the HRMS holidays source */
+    readonly HRMS_SUPABASE_URL: string | undefined;
+    /** Server-only service role key for the HRMS Supabase project */
+    readonly HRMS_SUPABASE_SERVICE_ROLE_KEY: string | undefined;
+    readonly HRMS_SUPABASE_SCHEMA: string | undefined;
+    readonly HRMS_HOLIDAYS_TABLE: string | undefined;
+    readonly HRMS_HOLIDAY_DATE_COLUMN: string | undefined;
+    readonly HRMS_HOLIDAY_NAME_COLUMN: string | undefined;
     /** @deprecated use `NEXT_PUBLIC_WEBAPP_URL` */
     readonly BASE_URL: string | undefined;
     /** @deprecated use `NEXT_PUBLIC_WEBAPP_URL` */

@@ -1,3 +1,4 @@
+import process from "node:process";
 import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
 import type {
@@ -7,6 +8,7 @@ import type {
 } from "@calcom/features/availability/lib/getUserAvailability";
 import type { DateRange } from "@calcom/features/schedules/lib/date-ranges";
 import { getTimeZone } from "@calcom/lib/dayjs";
+import { getMinimumBookingNoticeCutoff } from "@calcom/lib/getMinimumBookingNoticeCutoff";
 import { withReporting } from "@calcom/lib/sentryWrapper";
 
 export type GetSlots = {
@@ -19,6 +21,7 @@ export type GetSlots = {
   datesOutOfOffice?: IOutOfOfficeData;
   showOptimizedSlots?: boolean | null;
   datesOutOfOfficeTimeZone?: string;
+  originalBookingStartTime?: Date | string | null;
 };
 export type TimeFrame = { userIds?: number[]; startTime: number; endTime: number };
 
@@ -78,6 +81,7 @@ function buildSlotsWithDateRanges({
   datesOutOfOffice,
   showOptimizedSlots,
   datesOutOfOfficeTimeZone,
+  originalBookingStartTime,
 }: {
   dateRanges: DateRange[];
   frequency: number;
@@ -88,6 +92,7 @@ function buildSlotsWithDateRanges({
   datesOutOfOffice?: IOutOfOfficeData;
   showOptimizedSlots?: boolean | null;
   datesOutOfOfficeTimeZone?: string;
+  originalBookingStartTime?: Date | string | null;
 }) {
   // keep the old safeguards in; may be needed.
   frequency = minimumOfOne(frequency);
@@ -120,7 +125,11 @@ function buildSlotsWithDateRanges({
     }
   }
 
-  const startTimeWithMinNotice = dayjs.utc().add(minimumBookingNotice, "minute");
+  const startTimeWithMinNotice = getMinimumBookingNoticeCutoff({
+    minimumBookingNotice,
+    timeZone,
+    originalBookingStartTime,
+  });
 
   const slotBoundaries = new Map<number, true>();
 
@@ -184,7 +193,7 @@ function buildSlotsWithDateRanges({
 
       slotBoundaries.set(slotStartTime.valueOf(), true);
 
-      let dateOutOfOfficeExists = undefined;
+      let dateOutOfOfficeExists;
       if (datesOutOfOffice) {
         const slotDateYYYYMMDD = datesOutOfOfficeTimeZone
           ? slotStartTime.tz(datesOutOfOfficeTimeZone).format("YYYY-MM-DD")
@@ -239,6 +248,7 @@ const getSlots = ({
   datesOutOfOffice,
   showOptimizedSlots,
   datesOutOfOfficeTimeZone,
+  originalBookingStartTime,
 }: GetSlots): {
   time: Dayjs;
   userIds?: number[];
@@ -258,6 +268,7 @@ const getSlots = ({
     datesOutOfOffice,
     showOptimizedSlots,
     datesOutOfOfficeTimeZone,
+    originalBookingStartTime,
   });
 };
 

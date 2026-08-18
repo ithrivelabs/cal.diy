@@ -1,11 +1,10 @@
-import type { NextApiRequest } from "next";
-
+import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
 import { EventTypeRepository } from "@calcom/features/eventtypes/repositories/eventTypeRepository";
 import { PrismaSelectedSlotRepository } from "@calcom/features/selectedSlots/repositories/PrismaSelectedSlotRepository";
 import { HttpError } from "@calcom/lib/http-error";
 import { getPastTimeAndMinimumBookingNoticeBoundsStatus } from "@calcom/lib/isOutOfBounds";
 import type { PrismaClient } from "@calcom/prisma";
-
+import type { NextApiRequest } from "next";
 import type { TIsAvailableInputSchema, TIsAvailableOutputSchema } from "./isAvailable.schema";
 
 interface IsAvailableOptions {
@@ -33,7 +32,13 @@ export const isAvailableHandler = async ({
 
   // Get event type details for time bounds validation
   const eventTypeRepo = new EventTypeRepository(ctx.prisma);
-  const eventType = await eventTypeRepo.findByIdMinimal({ id: eventTypeId });
+  const bookingRepo = new BookingRepository(ctx.prisma);
+  const [eventType, originalBooking] = await Promise.all([
+    eventTypeRepo.findByIdMinimal({ id: eventTypeId }),
+    input.rescheduleUid
+      ? bookingRepo.findStartTimeByUid({ bookingUid: input.rescheduleUid })
+      : Promise.resolve(null),
+  ]);
 
   if (!eventType) {
     throw new HttpError({ statusCode: 404, message: "Event type not found" });
@@ -70,6 +75,8 @@ export const isAvailableHandler = async ({
     const timeStatus = getPastTimeAndMinimumBookingNoticeBoundsStatus({
       time: slot.utcStartIso,
       minimumBookingNotice: eventType.minimumBookingNotice,
+      timeZone: eventType.timeZone || eventType.lockedTimeZone,
+      originalBookingStartTime: originalBooking?.startTime ?? null,
     });
 
     return {
