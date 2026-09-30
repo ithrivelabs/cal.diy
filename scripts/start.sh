@@ -3,9 +3,13 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
-# Replace the statically built BUILT_NEXT_PUBLIC_WEBAPP_URL with run-time NEXT_PUBLIC_WEBAPP_URL
-# NOTE: if these values are the same, this will be skipped.
-scripts/replace-placeholder.sh "$BUILT_NEXT_PUBLIC_WEBAPP_URL" "$NEXT_PUBLIC_WEBAPP_URL"
+if [ -f built-webapp-url ]; then
+  built_webapp_url=$(cat built-webapp-url)
+else
+  built_webapp_url=${BUILT_NEXT_PUBLIC_WEBAPP_URL:?}
+fi
+scripts/replace-placeholder.sh "$built_webapp_url" "$NEXT_PUBLIC_WEBAPP_URL"
 
 cd apps/web
-exec node ../../node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port "${PORT:-3000}"
+export HOSTNAME=0.0.0.0
+exec node server.js

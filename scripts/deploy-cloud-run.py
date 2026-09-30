@@ -48,23 +48,28 @@ def make_job(service, image, name):
     }
 
 
+def resolve_image(project, image):
+    result = subprocess.run([
+        "gcloud", "artifacts", "docker", "images", "describe", image,
+        f"--project={project}", "--format=json", "--quiet",
+    ], check=True, text=True, stdout=subprocess.PIPE)
+    digest = json.loads(result.stdout)["image_summary"]["fully_qualified_digest"]
+    if not re.fullmatch(r"[^\s@]+@sha256:[a-f0-9]{64}", digest):
+        raise ValueError("Artifact Registry did not return an immutable image digest")
+    return digest
+
+
 def deploy(args):
     service = gcloud(args.project, args.region, "run", "services", "describe", args.service, read=True)
-    # Resolve a tag once so preparation and rollout always use identical code.
-    result = subprocess.run([
-        "gcloud", "artifacts", "docker", "images", "describe", args.image,
-        f"--project={args.project}", "--format=json", "--quiet",
-    ], check=True, text=True, stdout=subprocess.PIPE)
-    image = json.loads(result.stdout)["image_summary"]["fully_qualified_digest"]
-    if not re.fullmatch(r"[^\s@]+@sha256:[a-f0-9]{64}", image):
-        raise ValueError("Artifact Registry did not return an immutable image digest")
+    image = resolve_image(args.project, args.image)
+    prepare_image = resolve_image(args.project, args.prepare_image) if args.prepare_image else image
     release = args.release_id.replace("-", "")
     if not re.fullmatch(r"[a-z0-9]{1,32}", release):
         raise ValueError("release-id must contain 1–32 lowercase letters/digits, excluding hyphens")
     service_prefix_length = 49 - len("-prepare-") - len(release)
     name = f"{args.service[:service_prefix_length].rstrip('-')}-prepare-{release}"
-    job = make_job(service, image, name)
-    print(f"Preparation job: {name}\nImage: {image}", flush=True)
+    job = make_job(service, prepare_image, name)
+    print(f"Preparation job: {name}\nPreparation image: {prepare_image}\nWeb image: {image}", flush=True)
     if args.dry_run:
         return
     # The manifest may contain plain environment secrets inherited from the service.
@@ -83,6 +88,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare the database before updating a Cloud Run web service")
     for option in ("project", "region", "service", "image", "release-id"):
         parser.add_argument(f"--{option}", required=True)
+    parser.add_argument("--prepare-image")
     parser.add_argument("--dry-run", action="store_true")
     try:
         deploy(parser.parse_args())

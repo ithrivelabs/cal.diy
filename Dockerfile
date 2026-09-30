@@ -74,14 +74,27 @@ ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
   BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
 
 RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL}
+RUN printf '%s' "$NEXT_PUBLIC_WEBAPP_URL" > /calcom/built-webapp-url
+RUN mkdir -p /calcom/runtime-descriptions && \
+  find packages/app-store -name DESCRIPTION.md -exec cp --parents {} /calcom/runtime-descriptions/ \;
 
-FROM node:20 AS runner
+FROM node:20-bookworm-slim AS runner
 
 WORKDIR /calcom
 
-RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder-two /calcom ./
+COPY --from=builder-two /calcom/apps/web/.next/standalone ./
+COPY --from=builder-two /calcom/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder-two /calcom/apps/web/public ./apps/web/public
+COPY --from=builder-two /calcom/i18n.json ./i18n.json
+COPY --from=builder-two /calcom/packages/i18n/locales ./packages/i18n/locales
+COPY --from=builder-two /calcom/packages/emails/templates/confirm-email.html ./packages/emails/templates/confirm-email.html
+COPY --from=builder-two /calcom/runtime-descriptions/packages/app-store ./packages/app-store
+COPY --from=builder-two /calcom/scripts/start.sh ./scripts/start.sh
+COPY --from=builder-two /calcom/scripts/replace-placeholder.sh ./scripts/replace-placeholder.sh
+COPY --from=builder-two /calcom/built-webapp-url ./built-webapp-url
+RUN test -f apps/web/server.js && test -f apps/web/.next/BUILD_ID && test -f apps/web/public/embed/embed.js
 ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 ENV NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
   BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
@@ -90,6 +103,6 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
-  CMD wget --spider http://localhost:3000 || exit 1
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000)).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["/calcom/scripts/start.sh"]

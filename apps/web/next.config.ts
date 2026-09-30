@@ -1,9 +1,10 @@
+import path from "node:path";
+import i18nConfig from "@calcom/i18n/next-i18next.config";
 import { withBotId } from "botid/next/config";
 import { config as dotenvConfig } from "dotenv";
 import type { NextConfig } from "next";
 import type { RouteHas } from "next/dist/lib/load-custom-routes";
 import { withAxiom } from "next-axiom";
-import i18nConfig from "@calcom/i18n/next-i18next.config";
 import packageJson from "./package.json";
 import {
   nextJsOrgRewriteConfig,
@@ -223,6 +224,8 @@ const nextConfig = (phase: string): NextConfig => {
 
   return {
     output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
+    outputFileTracingRoot:
+      process.env.BUILD_STANDALONE === "true" ? path.join(__dirname, "../..") : undefined,
     serverExternalPackages: [
       "deasync",
       "http-cookie-agent",
