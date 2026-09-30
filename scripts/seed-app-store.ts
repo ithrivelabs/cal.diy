@@ -1,15 +1,13 @@
-/**
- * @deprecated
- * This file is deprecated. The only use of this file is to seed the database for E2E tests. Each test should take care of seeding it's own data going forward.
- */
-import dotEnv from "dotenv";
-import path from "node:path"
-
-import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";
+import path from "node:path";
+import process from "node:process";
 import { shouldEnableApp } from "@calcom/app-store/_utils/validateAppKeys";
+import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";
+import { appKeysSchema as googleAppKeysSchema } from "@calcom/app-store/googlecalendar/zod";
+import { ErrorWithCode } from "@calcom/lib/errors";
 import prisma from "@calcom/prisma";
 import type { Prisma } from "@calcom/prisma/client";
 import { AppCategories } from "@calcom/prisma/enums";
+import dotEnv from "dotenv";
 
 dotEnv.config({ path: path.resolve(__dirname, "../.env") });
 dotEnv.config({ path: path.resolve(__dirname, "../.env.appStore") });
@@ -27,6 +25,7 @@ async function createApp(
 ) {
   try {
     const foundApp = await prisma.app.findFirst({
+      select: { slug: true, dirName: true, keys: true },
       /**
        * slug and dirName both are unique and any of them can be used to find the app uniquely
        * Using both here allows us to rename(after the app has been seeded already) `slug` or `dirName` while still finding the app to apply the change on.
@@ -86,12 +85,23 @@ async function createApp(
       where: { type },
       data: { appId: slug },
     });
-  } catch (e) {
-    console.log(`Could not upsert app: ${slug}. Error:`, e);
+  } catch {
+    // Prisma errors can contain app credentials; report only the failing app.
+    throw ErrorWithCode.Factory.InternalServerError(`Unable to seed app: ${slug}`);
   }
 }
 
-export default async function main() {
+export default async function main({ requireGoogleCalendar = false } = {}): Promise<void> {
+  let googleKeys: ReturnType<typeof googleAppKeysSchema.parse> | undefined;
+  if (process.env.GOOGLE_API_CREDENTIALS) {
+    try {
+      googleKeys = googleAppKeysSchema.parse(JSON.parse(process.env.GOOGLE_API_CREDENTIALS).web);
+    } catch {
+      throw ErrorWithCode.Factory.BadRequest(
+        "GOOGLE_API_CREDENTIALS must contain valid Google OAuth web credentials"
+      );
+    }
+  }
   // Calendar apps
   await createApp("apple-calendar", "applecalendar", ["calendar"], "apple_calendar");
   if (
@@ -106,22 +116,9 @@ export default async function main() {
     });
   }
   await createApp("caldav-calendar", "caldavcalendar", ["calendar"], "caldav_calendar");
-  try {
-    const { client_secret, client_id, redirect_uris } = JSON.parse(
-      process.env.GOOGLE_API_CREDENTIALS || ""
-    ).web;
-    await createApp("google-calendar", "googlecalendar", ["calendar"], "google_calendar", {
-      client_id,
-      client_secret,
-      redirect_uris,
-    });
-    await createApp("google-meet", "googlevideo", ["conferencing"], "google_video", {
-      client_id,
-      client_secret,
-      redirect_uris,
-    });
-  } catch (e) {
-    if (e instanceof Error) console.error("Error adding google credentials to DB:", e.message);
+  if (googleKeys) {
+    await createApp("google-calendar", "googlecalendar", ["calendar"], "google_calendar", googleKeys);
+    await createApp("google-meet", "googlevideo", ["conferencing"], "google_video", googleKeys);
   }
   if (process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET) {
     await createApp("office365-calendar", "office365calendar", ["calendar"], "office365_calendar", {
@@ -260,15 +257,27 @@ export default async function main() {
       app.isTemplate
     );
   }
+
+  if (requireGoogleCalendar) {
+    const googleCalendar = await prisma.app.findUnique({
+      where: { slug: "google-calendar" },
+      select: { enabled: true },
+    });
+    if (!googleCalendar?.enabled) {
+      throw ErrorWithCode.Factory.BadRequest(
+        "Google Calendar must be configured and enabled before deployment"
+      );
+    }
+  }
 }
 
 if (require.main === module) {
   (async () => {
-    await main();
+    await main({ requireGoogleCalendar: process.argv.includes("--require-google-calendar") });
   })()
     .catch((e) => {
       console.error(e);
-      process.exit(1);
+      process.exitCode = 1;
     })
     .finally(async () => {
       await prisma.$disconnect();

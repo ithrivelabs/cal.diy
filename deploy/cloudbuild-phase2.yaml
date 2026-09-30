@@ -1,0 +1,49 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: Build
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - --no-cache
+      - -t
+      - ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}
+      - .
+      - -f
+      - Dockerfile
+
+  - name: gcr.io/cloud-builders/docker
+    id: Push
+    args:
+      - push
+      - ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: Deploy
+    entrypoint: python3
+    args:
+      - scripts/deploy-cloud-run.py
+      - --project=${_AR_PROJECT_ID}
+      - --region=${_DEPLOY_REGION}
+      - --service=${_SERVICE_NAME}
+      - --image=${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}
+      - --release-id=${BUILD_ID}
+
+images:
+  - ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}
+timeout: 5400s
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _AR_PROJECT_ID: calender-495405
+  _PLATFORM: managed
+  _SERVICE_NAME: cal-diy
+  _DEPLOY_REGION: asia-southeast1
+  _AR_HOSTNAME: asia-southeast1-docker.pkg.dev
+  _TRIGGER_ID: 9e0f8b44-369b-4861-988d-c308be482d95
+tags:
+  - gcp-cloud-build-deploy-cloud-run
+  - gcp-cloud-build-deploy-cloud-run-managed
+  - cal-diy
