@@ -6,9 +6,10 @@ import type { UseBookingFormReturnType } from "@calcom/features/bookings/Booker/
 import { formatEventFromTime } from "@calcom/features/bookings/Booker/utils/dates";
 import type { BookerEvent } from "@calcom/features/bookings/types";
 import ServerTrans from "@calcom/lib/components/ServerTrans";
-import { APP_NAME, WEBSITE_PRIVACY_POLICY_URL, WEBSITE_TERMS_URL } from "@calcom/lib/constants";
+import { APP_NAME, WEBAPP_URL, WEBSITE_PRIVACY_POLICY_URL, WEBSITE_TERMS_URL } from "@calcom/lib/constants";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import { buildStandardCancelLink } from "@calcom/lib/LinkBuilder";
 import type { TimeFormat } from "@calcom/lib/timeFormat";
 import { Alert } from "@calcom/ui/components/alert";
 import { Button } from "@calcom/ui/components/button";
@@ -287,6 +288,7 @@ const getError = ({
 
   let date = "";
   let count = 0;
+  let cancelLink = "";
 
   if (error.message === ErrorCode.BookerLimitExceededReschedule) {
     const formattedDate = formatEventFromTime({
@@ -296,6 +298,15 @@ const getError = ({
       language,
     });
     date = `${formattedDate.date} ${formattedDate.time}`;
+
+    if (error.data.rescheduleUid) {
+      cancelLink = buildStandardCancelLink({
+        bookerUrl: WEBAPP_URL,
+        uid: error.data.rescheduleUid,
+        cancelledBy: error.data.attendees?.[0]?.email,
+        seatReferenceUid: error.data.seatUid ?? undefined,
+      });
+    }
   }
 
   if (error.message === ErrorCode.BookerLimitExceeded && error.data?.count) {
@@ -308,6 +319,13 @@ const getError = ({
   return error?.message ? (
     <>
       {responseVercelIdHeader ?? ""} {t(messageKey, { date, count })}
+      {cancelLink && (
+        <div className="mt-2">
+          <a href={cancelLink} className="font-medium underline" data-testid="cancel-existing-booking-link">
+            {t("cancel_existing_booking")}
+          </a>
+        </div>
+      )}
       {error.data?.traceId && (
         <div className="mt-2 text-xs text-subtle">
           <span className="font-medium">{t("trace_reference_id")}:</span>
